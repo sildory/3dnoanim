@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Yokohama True Crime Noir</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="cinema-frame">
+    <canvas id="stage" width="1920" height="1080"></canvas>
+  </div>
+
+  <script type="module">
+    import { NoirEngine } from './js/engine.js';
+    import { YokohamaScenes } from './js/scenes.js';
+
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const engine = new NoirEngine(ctx, 1920, 1080);
+    const scenes = new YokohamaScenes(engine);
+
+    window.renderFrame = function(frameIndex) {
+      scenes.render(frameIndex);
+    };
+
+    window.renderFrame(0);
+  </script>
+</body>
+</html>
