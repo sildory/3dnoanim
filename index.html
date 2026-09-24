@@ -14,7 +14,8 @@
     import { NoirEngine } from './js/engine.js';
     import { YokohamaScenes } from './js/scenes.js';
 
-    const canvas = document.getElementById('stage');
+    // Находим первый холст на странице независимо от id
+    const canvas = document.querySelector('canvas');
     const ctx = canvas.getContext('2d', { alpha: false });
     const engine = new NoirEngine(ctx, 1920, 1080);
     const scenes = new YokohamaScenes(engine);
