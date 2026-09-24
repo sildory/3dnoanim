@@ -1,11 +1,6 @@
 name: Render Yokohama Noir Video
 
 on:
-  workflow_dispatch: # Позволяет запускать рендер вручную по кнопке
-  push:
-name: Render Yokohama Noir Video
-
-on:
   workflow_dispatch:
 
 jobs:
