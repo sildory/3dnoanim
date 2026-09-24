@@ -1,0 +1,56 @@
+name: Render Yokohama Noir Video
+
+on:
+  workflow_dispatch: # Позволяет запускать рендер вручную по кнопке
+  push:
+    branches:
+      - main
+    paths:
+      - 'Yokohama/**'
+
+jobs:
+  render-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: 1. Клонирование репозитория (Checkout)
+        uses: actions/checkout@v4
+
+      - name: 2. Настройка Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 3. Установка системных утилит, FFmpeg и шрифтов (CJK + Cyrillic)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ffmpeg \
+            fonts-noto-cjk \
+            fonts-dejavu-core \
+            fonts-freefont-ttf \
+            libgbm1 \
+            libnss3 \
+            libasound2t64 || sudo apt-get install -y libasound2
+
+      - name: 4. Установка зависимостей проекта (Puppeteer)
+        working-directory: ./Yokohama
+        run: npm install
+
+      - name: 5. Запуск рендера видео (1920x1080 @ 60 FPS, 30 сек)
+        working-directory: ./Yokohama
+        run: node render.mjs
+
+      - name: 6. Проверка наличия готового MP4
+        working-directory: ./Yokohama
+        run: |
+          ls -lh yokohama_noir_masterpiece.mp4
+
+      - name: 7. Выгрузка готового видео в Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: yokohama-noir-60fps-video
+          path: Yokohama/yokohama_noir_masterpiece.mp4
+          retention-days: 14
+          if-no-files-found: error
