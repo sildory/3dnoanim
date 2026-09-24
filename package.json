@@ -1,0 +1,13 @@
+{
+  "name": "yokohama-noir-cinematic",
+  "version": "5.0.0",
+  "type": "module",
+  "description": "Ultimate 60 FPS Detective Noir Animation: Yokohama",
+  "main": "render.mjs",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^22.6.0"
+  }
+}
