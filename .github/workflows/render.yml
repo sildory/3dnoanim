@@ -3,6 +3,10 @@ name: Render Yokohama Noir Video
 on:
   workflow_dispatch:
 
+# Разрешаем создавать релизы и прикреплять к ним видео
+permissions:
+  contents: write
+
 jobs:
   render-video:
     runs-on: ubuntu-latest
@@ -28,9 +32,11 @@ jobs:
       - name: 5. Запуск рендера
         run: node render.mjs
 
-      - name: 6. Выгрузка готового видео
-        uses: actions/upload-artifact@v4
-        with:
-          name: yokohama-noir-masterpiece-video
-          path: yokohama_noir_masterpiece.mp4
-          retention-days: 7
+      - name: 6. Публикация готового видео в GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="render-$(date +'%Y%m%d-%H%M%S')"
+          gh release create "$TAG" yokohama_noir_masterpiece.mp4 \
+            --title "Yokohama Noir ($TAG)" \
+            --notes "Готовый 60 FPS рендер (1080p H.264)"
