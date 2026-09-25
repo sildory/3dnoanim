@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: 3. Установка системных утилит, WebGL Mesa, FFmpeg и японских шрифтов
+      - name: 3. Установка системных утилит, Xvfb, Mesa и шрифтов
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -33,7 +33,9 @@ jobs:
             libglx-mesa0 \
             libegl1 \
             libgbm1 \
-            libnss3
+            libnss3 \
+            xvfb \
+            mesa-utils
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: 4. Установка зависимостей проекта
@@ -41,8 +43,9 @@ jobs:
           npm install
           npx puppeteer browsers install chrome
 
-      - name: 5. Запуск честного 3D-рендера
-        run: node render.mjs
+      - name: 5. Запуск честного 3D-рендера под виртуальным дисплеем Xvfb
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -ac +extension GLX +render" node render.mjs
 
       - name: 6. Публикация готового видео в GitHub Releases
         env:
@@ -51,4 +54,4 @@ jobs:
           TAG="yokohama-3d-$(date +'%Y%m%d-%H%M%S')"
           gh release create "$TAG" yokohama_noir_masterpiece.mp4 \
             --title "Yokohama True Crime 3D ($TAG)" \
-            --notes "Честный 60 FPS 3D-рендер на базе Three.js WebGL (1080p H.264)"
+            --notes "Честный 60 FPS 3D-рендер на базе Three.js WebGL (1080 p H.264)"
