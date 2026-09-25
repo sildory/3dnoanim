@@ -2,29 +2,58 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Yokohama True Crime Noir</title>
+  <title>Yokohama True Crime Noir 3D</title>
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Карта импортов для прямой загрузки Three.js без внешних сборщиков -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/node_modules/three/build/three.module.js",
+      "three/addons/": "/node_modules/three/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
-  <div id="cinema-frame">
-    <canvas id="stage" width="1920" height="1080"></canvas>
+  <div id="cinema-viewport">
+    <!-- 3D Canvas -->
+    <canvas id="webgl-stage" width="1920" height="1080"></canvas>
+
+    <!-- Сканлайны и затемнение оптики -->
+    <div id="crt-scanlines"></div>
+
+    <!-- Двуязычный криминалистический слой поверх 3D -->
+    <div id="hud-overlay">
+      <div class="hud-header">
+        <div class="hud-agency-badge">
+          <div class="hud-agency-jp">神奈川県警察本部 // 捜査特別班</div>
+          <div class="hud-agency-ru">УПРАВЛЕНИЕ ПОЛИЦИИ ПРЕФЕКТУРЫ КАНАГАВА // ОСОБЫЙ ОТДЕЛ</div>
+        </div>
+
+        <div class="hud-meta-info">
+          <div>КООРДИНАТЫ: <span class="hud-meta-red">35°26'39.2"N 139°39'52.4"E</span></div>
+          <div>СЕКТОР: <span class="hud-meta-red">ПОРТ ИОКОГАМА [横浜港]</span></div>
+          <div>СТАТУС AIS: <span class="hud-meta-red" id="hud-ais">СИГНАЛ ПОТЕРЯН [AIS 喪失]</span></div>
+          <div id="hud-timestamp">02:47:19 JST // ТАЙФУН № 14</div>
+        </div>
+      </div>
+
+      <div class="hud-footer">
+        <div class="hud-dossier-box">
+          <div class="hud-dossier-title" id="hud-title">事件概要 // ОПЕРАТИВНАЯ СВОДКА</div>
+          <div class="hud-dossier-text" id="hud-transcript">Инициализация криминалистического протокола...</div>
+        </div>
+
+        <div class="hanko-stamp">
+          <div>神奈川</div>
+          <div>捜査</div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script type="module">
-    import { NoirEngine } from './js/engine.js';
-    import { YokohamaScenes } from './js/scenes.js';
-
-    // Находим первый холст на странице независимо от id
-    const canvas = document.querySelector('canvas');
-    const ctx = canvas.getContext('2d', { alpha: false });
-    const engine = new NoirEngine(ctx, 1920, 1080);
-    const scenes = new YokohamaScenes(engine);
-
-    window.renderFrame = function(frameIndex) {
-      scenes.render(frameIndex);
-    };
-
-    window.renderFrame(0);
-  </script>
+  <!-- Загрузка главного управляющего скрипта движка -->
+  <script type="module" src="./js/main.js"></script>
 </body>
-</html>
+ </html>
