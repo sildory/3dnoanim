@@ -1,16 +1,25 @@
 import * as THREE from 'three';
 
+/**
+ * ПЛАВНЫЕ МАТЕМАТИЧЕСКИЕ ИНТЕРПОЛЯЦИИ ДЛЯ КИНОКАМЕРЫ
+ */
+function smootherstep(min, max, value) {
+  const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
 export class NoirDirector {
   constructor(camera) {
     this.camera = camera;
     this.totalFrames = 1800; // 30 секунд при 60 FPS
 
+    // DOM-элементы интерфейса (HUD)
     this.domAis = document.getElementById('hud-ais');
     this.domTimestamp = document.getElementById('hud-timestamp');
     this.domTitle = document.getElementById('hud-title');
     this.domTranscript = document.getElementById('hud-transcript');
 
-    // Слоты под 5 сцен
+    // Слоты под сцены
     this.scenes = {
       scene1: null,
       scene2: null,
@@ -19,87 +28,66 @@ export class NoirDirector {
       scene5: null
     };
 
-    // Сценарий двуязычных протоколов расследования
-    this.dossierTimeline = [
+    // Точки прицеливания камеры
+    this.lookTarget = new THREE.Vector3(0, 1.5, 0);
+
+    // Сценарный таймлайн фильма
+    this.timeline = [
       {
         start: 0,
-        end: 180,
-        ais: 'СИГНАЛ AIS: ПОТЕРЯН [AIS 信号途絶]',
-        time: '02:47:19 JST // ЗАЛИВ ДАЙКОКУ',
-        title: '事件概要 // ДЕЛО № 09: ПОИСКОВАЯ ОПЕРАЦИЯ',
-        text: 'Сухогруз «Акацуки» обесточен в акватории Иокогамы. Попытка выхода на связь без ответа.'
+        end: 280,
+        city: 'LOS ANGELES // SUNSET BLVD',
+        time: '19:42 PDT // ЗОЛОТОЙ ЧАС',
+        title: 'УЛИЧНЫЙ СОУЛ // ГОЛОС КАЛИФОРНИИ',
+        text: '«Петь на бульваре — значит перекрикивать шум автострад и гул океанского ветра...»'
       },
       {
-        start: 180,
-        end: 360,
-        ais: 'СОНАР: ОБЪЕКТ НА ДНЕ [ソナー異常感知]',
-        time: '02:49:05 JST // СЕКТОР ДАЙКОКУ-БУЙ',
-        title: '水中探知 // АНОМАЛИЯ НА ГЛУБИНЕ 14 МЕТРОВ',
-        text: 'Сонар береговой охраны засек затопленный седан синдиката. Габаритные огни замкнуты.'
+        start: 280,
+        end: 560,
+        city: 'LOS ANGELES // ACOUSTIC VIBE',
+        time: '19:48 PDT // САНСЕТ-СТРИП',
+        title: 'АКУСТИКА АСФАЛЬТА // SHURE 55SH',
+        text: 'Теплый калифорнийский смог ловит последние лучи солнца на хромированной решетке микрофона.'
       },
       {
-        start: 360,
-        end: 540,
-        ais: 'ОГРАЖДЕНИЕ: ПИРС-4 [規制線展開]',
-        time: '02:51:30 JST // ТЕРМИНАЛ ХОНМОКУ',
-        title: '現場鑑識 // КРИМИНАЛИСТИЧЕСКИЙ ОСМОТР ПИРСА-4',
-        text: 'На кромке мокрого настила обнаружена стреляная гильза 9x19мм и смываемый след крови.'
+        start: 560,
+        end: 840,
+        city: 'LOS ANGELES // DOWNTOWN RIM',
+        time: '19:54 PDT // СУМЕРКИ ДАУНТАУНА',
+        title: 'ФИНАЛЬНЫЙ АККОРД // БРОНЗОВЫЙ ЗАКАТ',
+        text: 'Солнце тонет за силуэтами пальм. Город зажигает первые уличные фонари.'
       },
       {
-        start: 540,
-        end: 720,
-        ais: 'БАЛЛИСТИКА: СОВПАДЕНИЕ [鑑識一致]',
-        time: '02:53:14 JST // ПИРС ХОНМОКУ B-7',
-        title: '遺留品照合 // СОВПАДЕНИЕ С ТАБЕЛЬНЫМ ОРУЖИЕМ',
-        text: 'Нарезка ствола с вероятностью 99.8% указывает на револьвер полицейского департамента.'
-      },
-      {
-        start: 720,
+        start: 840,
         end: 900,
-        ais: 'ПЕРЕХВАТ РАДИО [無線傍受成功]',
-        time: '02:55:00 JST // КАННАЙ / ЧАЙНАТАУН',
-        title: '通信傍受 // ПЕРЕХВАТ СИНДИКАТА «ИНАГАВА-КАЙ»',
-        text: '«Инспектор Исикава вышел на контейнерный след. Приказ руководства: ликвидировать.»'
+        city: 'TRANSIT // COAST TO COAST',
+        time: '23:59 EST // ПЕРЕСЕКАЯ КОНТИНЕНТ',
+        title: 'СМЕНА РИТМА // ОТ СОУЛА К ДЖАЗУ',
+        text: 'От тихоокеанской акустики — к электрическому неону Атлантического побережья.'
       },
       {
         start: 900,
-        end: 1080,
-        ais: 'ЦЕЛЬ ОБНАРУЖЕНА [車両確認]',
-        time: '02:56:45 JST // ПЕРЕУЛОК ИСЕДЗАКИ',
-        title: '追跡緊急配備 // СЕДАН ДЕТЕКТИВА ПОД НАБЛЮДЕНИЕМ',
-        text: 'Автомобиль инспектора заблокирован в неоновом квартале. Дворники включены, салон пуст.'
+        end: 1200,
+        city: 'MIAMI // OCEAN DRIVE',
+        time: '01:15 EDT // ТРОПИЧЕСКАЯ ПОЛНОЧЬ',
+        title: 'НОЧНОЙ НЕОН // ВСТУПЛЕНИЕ САКСОФОНА',
+        text: 'Влажный океанский воздух, запах соли и контрабасовый грув на открытой террасе клуба.'
       },
       {
-        start: 1080,
-        end: 1260,
-        ais: 'ГОЛОГРАММА УЛИК [立体弾道解析]',
-        time: '02:58:10 JST // ТАКТИЧЕСКИЙ ОТДЕЛ',
-        title: '弾道再構成 // 3D-РЕКОНСТРУКЦИЯ СЕКТОРА СТРЕЛЬБЫ',
-        text: 'Вектор выстрела: 34.2 градуса сверху вниз. Выстрел произведен в упор со спины.'
+        start: 1200,
+        end: 1500,
+        city: 'MIAMI // ART DECO TERRACE',
+        time: '01:24 EDT // СИНЕСТЕЗИЯ ДЖАЗА',
+        title: 'ТЕНОР-САКСОФОН // СОЛО В МАДЖЕНТЕ',
+        text: 'Блики латуни ловят пурпурные и бирюзовые неоновые вывески отеля «Колони». Горячая импровизация.'
       },
       {
-        start: 1260,
-        end: 1440,
-        ais: 'СГОВОР ВЕРХОВ [警察上層部関与]',
-        time: '02:59:40 JST // АРХИВ ОСОБОГО ОТДЕЛА',
-        title: '極秘報告書 // ПОДТВЕРЖДЕНИЕ ПРЕДАТЕЛЬСТВА',
-        text: 'Приказ об отключении портовых камер исходил непосредственно из кабинета замначальника.'
-      },
-      {
-        start: 1440,
-        end: 1650,
-        ais: 'ШТОРМ: КУЛЬМИНАЦИЯ [大桟橋到達]',
-        time: '03:00:12 JST // ПИРС ОСАНБАСИ',
-        title: '最終対峙 // РАЗВЯЗКА НА КРАЮ МОЛА',
-        text: 'Иокогама тонет в грозовом шквале. Инспектор Исикава ждет связного у кромки залива.'
-      },
-      {
-        start: 1650,
+        start: 1500,
         end: 1800,
-        ais: 'ДЕЛО ЗАКРЫТО [事件封印]',
-        time: '03:01:00 JST // ТОКИЙСКИЙ ЗАЛИВ',
-        title: '事件記録結了 // ГОРОД, ГДЕ ПРАВДА ТОНЕТ В ДОЖДЕ',
-        text: '«В этом городе даже штормовой ливень не смоет следы предательства.»'
+        city: 'MIAMI // ATLANTIC HORIZON',
+        time: '01:30 EDT // КУЛЬМИНАЦИЯ',
+        title: 'ФИНАЛЬНОЕ СВЕДЕНИЕ // ДВА ПОБЕРЕЖЬЯ',
+        text: 'Два города, два ритма, одна ночь: закатный голос Запада и полуночный саксофон Востока.'
       }
     ];
   }
@@ -108,108 +96,206 @@ export class NoirDirector {
     this.scenes[name] = sceneInstance;
   }
 
-  // Обновление состояния режиссуры и положения камеры
+  // =========================================================================
+  // ОСНОВНОЙ РЕЖИССЕРСКИЙ ЦИКЛ ОБНОВЛЕНИЯ КАДРА
+  // =========================================================================
   update(frame) {
     this.updateHUD(frame);
 
-    // Определение текущего акта (по 360 кадров = 6 секунд на сцену)
-    if (frame < 360) {
-      this.directAct1(frame);
-    } else if (frame < 720) {
-      this.directAct2(frame - 360);
-    } else if (frame < 1080) {
-      this.directAct3(frame - 720);
-    } else if (frame < 1440) {
-      this.directAct4(frame - 1080);
+    // Распределение планов по таймлайну (30 сек = 1800 кадров)
+    if (frame < 280) {
+      this.directAct1_LASunsetEstablish(frame);
+    } else if (frame < 560) {
+      this.directAct2_LASteadicamOrbit(frame - 280);
+    } else if (frame < 840) {
+      this.directAct3_LADowntownWide(frame - 560);
+    } else if (frame < 900) {
+      this.directInterlude_Transition(frame - 840);
+    } else if (frame < 1200) {
+      this.directAct4_MiamiGlide(frame - 900);
+    } else if (frame < 1500) {
+      this.directAct5_MiamiJazz360(frame - 1200);
     } else {
-      this.directAct5(frame - 1440);
+      this.directAct6_GrandFinale(frame - 1500);
     }
   }
 
-  // Акт 1: Бреющий полет над темной водой залива к мосту
-  directAct1(f) {
-    const t = f / 360;
-    const camY = THREE.MathUtils.lerp(1.8, 4.2, t);
-    const camZ = THREE.MathUtils.lerp(35, -15, t);
-    const camX = Math.sin(f * 0.015) * 2.5;
+  // =========================================================================
+  // МИКРО-ДВИЖЕНИЕ ЖИВОЙ КАМЕРЫ (STEADICAM BREATHING)
+  // =========================================================================
+  applyCameraDrift(frame, amp = 0.035) {
+    const t = frame * 0.025;
+    this.camera.position.x += Math.sin(t * 1.1) * Math.cos(t * 0.6) * amp;
+    this.camera.position.y += Math.cos(t * 0.9) * Math.sin(t * 1.2) * (amp * 0.6);
+    this.camera.position.z += Math.sin(t * 0.7) * (amp * 0.4);
+  }
+
+  // =========================================================================
+  // АКТ 1: ЛОС-АНДЖЕЛЕС — СКОЛЬЖЕНИЕ КРАНА ВДОЛЬ ЗАКАТНОГО БУЛЬВАРА
+  // =========================================================================
+  directAct1_LASunsetEstablish(f) {
+    const t = smootherstep(0, 280, f);
+    this.camera.fov = THREE.MathUtils.lerp(34, 40, t);
+    this.camera.updateProjectionMatrix();
+
+    // Камера плавно скользит вперед, поднимаясь от асфальта навстречу силуэту певицы
+    const camX = THREE.MathUtils.lerp(-4.5, -0.6, t);
+    const camY = THREE.MathUtils.lerp(0.45, 1.45, t);
+    const camZ = THREE.MathUtils.lerp(18.0, 4.8, t);
 
     this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(camX * 0.5, 3.0, camZ - 40);
+    this.applyCameraDrift(f, 0.025);
 
-    if (this.scenes.scene1) {
-      this.scenes.scene1.update(f);
-    }
+    this.lookTarget.set(0, 1.4, 0);
+    this.camera.lookAt(this.lookTarget);
+
+    if (this.scenes.scene1) this.scenes.scene1.update(f);
   }
 
-  // Акт 2: Макро-трекинг на уровне 20 см от асфальта мимо гильзы и стробоскопов
-  directAct2(f) {
-    const t = f / 360;
-    const camX = THREE.MathUtils.lerp(-12, 10, t);
-    const camY = 0.35 + Math.sin(f * 0.05) * 0.02; // Киношное макро у земли
-    const camZ = THREE.MathUtils.lerp(5, -2, t);
+  // =========================================================================
+  // АКТ 2: ЛОС-АНДЖЕЛЕС — ИНТИМНЫЙ ОБЛЕТ ПЕВИЦЫ И МИКРОФОНА В ЗОЛОТОМ ЧАСУ
+  // =========================================================================
+  directAct2_LASteadicamOrbit(f) {
+    const t = smootherstep(0, 280, f);
+    this.camera.fov = 48; // Портретный кинообъектив
+    this.camera.updateProjectionMatrix();
 
-    this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(camX + 3.0, 0.25, camZ - 8);
+    // Эллиптический стедикам-облет сбоку на контровой закатный ракурс
+    const angle = THREE.MathUtils.lerp(-0.7, 0.85, t);
+    const radius = THREE.MathUtils.lerp(3.8, 2.6, t);
 
-    if (this.scenes.scene2) {
-      this.scenes.scene2.update(f);
-    }
-  }
-
-  // Акт 3: Головокружительный вертикальный спуск между небоскребами к седану
-  directAct3(f) {
-    const t = f / 360;
-    // Кран спускается с высоты 45 метров до 2.2 метра
-    const camY = THREE.MathUtils.lerp(45, 2.2, Math.pow(t, 0.75));
-    const camZ = THREE.MathUtils.lerp(-35, 12, t);
-    const camX = Math.sin(t * Math.PI) * 4.0;
-
-    this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(0, 1.2, 0);
-
-    if (this.scenes.scene3) {
-      this.scenes.scene3.update(f);
-    }
-  }
-
-  // Акт 4: Кинематографичный 3D-вираж вокруг баллистической модели пули
-  directAct4(f) {
-    const angle = (f / 360) * Math.PI * 2 * 0.75;
-    const radius = 6.5;
     const camX = Math.sin(angle) * radius;
     const camZ = Math.cos(angle) * radius;
-    const camY = 2.0 + Math.sin(f * 0.03) * 0.8;
+    const camY = 1.35 + Math.sin(t * Math.PI) * 0.25;
 
     this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(0, 1.4, 0);
+    this.applyCameraDrift(f, 0.03);
 
-    if (this.scenes.scene4) {
-      this.scenes.scene4.update(f);
-    }
+    this.lookTarget.set(0, 1.38, 0);
+    this.camera.lookAt(this.lookTarget);
+
+    if (this.scenes.scene2) this.scenes.scene2.update(f + 280);
   }
 
-  // Акт 5: Кульминационный наезд из-за спины детектива на пирсе под грозой
-  directAct5(f) {
-    const t = f / 360;
-    const camZ = THREE.MathUtils.lerp(28, 6.5, t);
-    const camY = THREE.MathUtils.lerp(4.5, 2.1, t);
-    const camX = Math.sin(f * 0.02) * 0.6;
+  // =========================================================================
+  // АКТ 3: ЛОС-АНДЖЕЛЕС — ШИРОКИЙ НИЖНИЙ ПЛАН (СИЛУЭТ НА ФОНЕ ПАЛЬМ И ЗАКАТА)
+  // =========================================================================
+  directAct3_LADowntownWide(f) {
+    const t = smootherstep(0, 280, f);
+    this.camera.fov = THREE.MathUtils.lerp(46, 36, t);
+    this.camera.updateProjectionMatrix();
+
+    // Медленный драматичный отъезд камеры назад с легким голландским углом (Dutch tilt)
+    const camX = Math.sin(t * 1.5) * 0.4;
+    const camY = THREE.MathUtils.lerp(0.85, 0.55, t); // Очень низкая точка съемки
+    const camZ = THREE.MathUtils.lerp(2.8, 7.2, t);
 
     this.camera.position.set(camX, camY, camZ);
-    this.camera.lookAt(0, 1.8, -30);
+    this.applyCameraDrift(f, 0.02);
 
-    if (this.scenes.scene5) {
-      this.scenes.scene5.update(f);
-    }
+    this.lookTarget.set(0, 1.5, -2.0);
+    this.camera.lookAt(this.lookTarget);
+
+    if (this.scenes.scene3) this.scenes.scene3.update(f + 560);
   }
 
-  // Обновление двуязычного протокола расследования
+  // =========================================================================
+  // ПЕРЕХОД: ЭКСПРЕСС-ПАН ДЕКОРАЦИЙ (WHIP PAN ИЗ LA В MIAMI)
+  // =========================================================================
+  directInterlude_Transition(f) {
+    const t = f / 60; // 1 секунда
+    this.camera.fov = THREE.MathUtils.lerp(36, 45, t);
+    this.camera.updateProjectionMatrix();
+
+    // Быстрый киношный поворот камеры (Whip-pan)
+    const panX = THREE.MathUtils.lerp(0, 15.0, t);
+    const panY = THREE.MathUtils.lerp(0.55, 3.2, t);
+    const panZ = THREE.MathUtils.lerp(7.2, 16.0, t);
+
+    this.camera.position.set(panX, panY, panZ);
+    this.camera.lookAt(panX * 2, 1.5, 0);
+
+    if (this.scenes.scene3) this.scenes.scene3.update(840);
+  }
+
+  // =========================================================================
+  // АКТ 4: МАЙАМИ — СКОЛЬЖЕНИЕ ВДОЛЬ ТЕРРАСЫ (САКСОФОН И НЕОНОВЫЕ ЛУЖИ)
+  // =========================================================================
+  directAct4_MiamiGlide(f) {
+    const t = smootherstep(0, 300, f);
+    this.camera.fov = 38;
+    this.camera.updateProjectionMatrix();
+
+    // Низкий трекинг вдоль настила террасы навстречу неоновым бликам саксофона
+    const camX = THREE.MathUtils.lerp(8.5, 1.2, t);
+    const camY = THREE.MathUtils.lerp(0.4, 1.3, t);
+    const camZ = THREE.MathUtils.lerp(14.0, 4.2, t);
+
+    this.camera.position.set(camX, camY, camZ);
+    this.applyCameraDrift(f, 0.035);
+
+    this.lookTarget.set(0, 1.35, 0);
+    this.camera.lookAt(this.lookTarget);
+
+    if (this.scenes.scene4) this.scenes.scene4.update(f + 900);
+  }
+
+  // =========================================================================
+  // АКТ 5: МАЙАМИ — ДИНАМИЧЕСКИЙ 360-ГРАДУСНЫЙ ОБЛЕТ ДЖАЗ-БЭНДА
+  // =========================================================================
+  directAct5_MiamiJazz360(f) {
+    const t = f / 300;
+    this.camera.fov = 42;
+    this.camera.updateProjectionMatrix();
+
+    // Плавный круговой вираж вокруг музыкантов на 360 градусов
+    const angle = t * Math.PI * 2 * 0.85;
+    const radius = 3.6 + Math.sin(t * Math.PI * 2) * 0.4;
+
+    const camX = Math.sin(angle) * radius;
+    const camZ = Math.cos(angle) * radius;
+    const camY = 1.45 + Math.sin(t * Math.PI * 4) * 0.35;
+
+    this.camera.position.set(camX, camY, camZ);
+    this.applyCameraDrift(f, 0.04);
+
+    this.lookTarget.set(0, 1.3, 0);
+    this.camera.lookAt(this.lookTarget);
+
+    if (this.scenes.scene5) this.scenes.scene5.update(f + 1200);
+  }
+
+  // =========================================================================
+  // АКТ 6: КУЛЬМИНАЦИЯ — КРАНОВЫЙ ВЗЛЕТ НАД ОКЕАНОМ И НОЧНЫМ МАЙАМИ
+  // =========================================================================
+  directAct6_GrandFinale(f) {
+    const t = smootherstep(0, 300, f);
+    this.camera.fov = THREE.MathUtils.lerp(42, 34, t);
+    this.camera.updateProjectionMatrix();
+
+    // Кран плавно поднимается на высоту 7 метров и отъезжает назад над Атлантикой
+    const camX = Math.sin(t * Math.PI) * 1.5;
+    const camY = THREE.MathUtils.lerp(1.45, 6.8, t);
+    const camZ = THREE.MathUtils.lerp(4.0, 16.5, t);
+
+    this.camera.position.set(camX, camY, camZ);
+    this.applyCameraDrift(f, 0.02);
+
+    this.lookTarget.set(0, 1.2, -6.0);
+    this.camera.lookAt(this.lookTarget);
+
+    if (this.scenes.scene5) this.scenes.scene5.update(f + 1500);
+  }
+
+  // =========================================================================
+  // ДВУЯЗЫЧНЫЙ ТИТРОВОЙ ИНТЕРФЕЙС (HUD)
+  // =========================================================================
   updateHUD(frame) {
-    for (let i = 0; i < this.dossierTimeline.length; i++) {
-      const item = this.dossierTimeline[i];
+    for (let i = 0; i < this.timeline.length; i++) {
+      const item = this.timeline[i];
       if (frame >= item.start && frame < item.end) {
-        if (this.domAis && this.domAis.textContent !== item.ais) {
-          this.domAis.textContent = item.ais;
+        if (this.domAis && this.domAis.textContent !== item.city) {
+          this.domAis.textContent = item.city;
         }
         if (this.domTimestamp && this.domTimestamp.textContent !== item.time) {
           this.domTimestamp.textContent = item.time;
@@ -218,9 +304,9 @@ export class NoirDirector {
           this.domTitle.textContent = item.title;
         }
         if (this.domTranscript) {
-          // Эффект печатной машинки для текста сводки
+          // Эффект плавного проявления кино-титров
           const localF = frame - item.start;
-          const charsToShow = Math.floor(localF * 1.6);
+          const charsToShow = Math.floor(localF * 1.8);
           this.domTranscript.textContent = item.text.substring(0, charsToShow);
         }
         break;
@@ -228,14 +314,18 @@ export class NoirDirector {
     }
   }
 
+  // =========================================================================
+  // РИТМИЧЕСКИЕ СВЕТОВЫЕ АКЦЕНТЫ (ВМЕСТО СТАРОЙ МОЛНИИ)
+  // Синхронизировано под ключевые доли бита и джазовые акценты
+  // =========================================================================
   isLightningFrame(frame) {
-    // Кадры вспышек молний в Акте 1 и в кульминационном Акте 5
     return (
-      (frame >= 75 && frame <= 82)   ||
-      (frame >= 210 && frame <= 216) ||
-      (frame >= 1480 && frame <= 1488) ||
-      (frame >= 1610 && frame <= 1622) ||
-      (frame >= 1720 && frame <= 1730)
+      (frame >= 240 && frame <= 245) ||  // Кульминация куплета LA
+      (frame >= 520 && frame <= 526) ||  // Закатный луч
+      (frame >= 890 && frame <= 898) ||  // Световой переход континента
+      (frame >= 1180 && frame <= 1186) || // Вступление соло саксофона в Майами
+      (frame >= 1440 && frame <= 1448) || // Акцент контрабаса
+      (frame >= 1710 && frame <= 1720)   // Финальный сценический аккорд
     );
   }
-}
+  } 
