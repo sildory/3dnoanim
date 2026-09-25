@@ -569,4 +569,64 @@ export class Scene2Docks {
         scale: Math.random(),
         speed: THREE.MathUtils.randFloat(0.03, 0.06),
         baseX: ring.position.x,
-        baseZ: ring
+        baseZ: ring.position.z
+      });
+    }
+  }
+
+  // =========================================================================
+  // ЦИКЛ АНИМАЦИИ КАДРА (ВЫЗЫВАЕТСЯ ДИРЕКТОРОМ)
+  // =========================================================================
+  update(frame) {
+    const time = frame * 0.016;
+
+    // 1. Полицейские стробоскопы: двойная вспышка левого, затем правого (японский ритм)
+    const strobeCycle = frame % 30;
+    const leftActive = strobeCycle < 4 || (strobeCycle > 7 && strobeCycle < 11);
+    const rightActive = (strobeCycle >= 15 && strobeCycle < 19) || (strobeCycle > 22 && strobeCycle < 26);
+    const blueActive = frame % 12 < 3;
+
+    this.strobeRedLeft.intensity = leftActive ? 22.0 : 0.2;
+    this.strobeRedRight.intensity = rightActive ? 22.0 : 0.2;
+    this.strobeBlueGrille.intensity = blueActive ? 14.0 : 0.0;
+
+    // 2. Блик на стреляной гильзе и жетоне от стробоскопов
+    this.casingGlint.intensity = (leftActive || rightActive) ? 2.5 : 0.3;
+
+    // 3. Физика развевающейся на штормовом ветру полицейской ленты
+    const pos = this.tapeGeo.attributes.position;
+    const base = this.baseTapeVertices;
+    const count = pos.count;
+    const galeStrength = 0.28;
+
+    for (let i = 0; i < count; i++) {
+      const x = base.getX(i);
+      const wavePhase = (x / this.tapeLength) * Math.PI * 4;
+      const windWave = Math.sin(wavePhase - time * 18.0) * galeStrength;
+      const microFlutter = Math.cos(wavePhase * 2.5 + time * 32.0) * 0.06;
+
+      // Смещение ленты по ветру (Z-ось) и вибрация по высоте (Y-ось)
+      pos.setZ(i, base.getZ(i) + windWave + microFlutter);
+      pos.setY(i, base.getY(i) + Math.sin(time * 12.0 + x) * 0.04);
+    }
+    pos.needsUpdate = true;
+    this.tapeGeo.computeVertexNormals();
+
+    // 4. Анимация кругов ряби в лужах от капель дождя
+    this.ripples.forEach((rip) => {
+      rip.scale += rip.speed;
+      if (rip.scale > 1.0) {
+        rip.scale = 0.01;
+        rip.mesh.position.x = THREE.MathUtils.randFloat(-6, 6);
+        rip.mesh.position.z = THREE.MathUtils.randFloat(-3, 3);
+      }
+      const currentScale = rip.scale * 3.5;
+      rip.mesh.scale.set(currentScale, 1.0, currentScale);
+      rip.mesh.material.opacity = (1.0 - rip.scale) * 0.7;
+    });
+
+    // 5. Медленное размытие крови дождем
+    const bloodWash = Math.sin(time * 0.8) * 0.04;
+    this.bloodMat.opacity = 0.92 - bloodWash;
+  }
+}
