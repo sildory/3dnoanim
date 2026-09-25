@@ -22,12 +22,32 @@ class YokohamaNoirMasterEngine {
     this.isPlaying = false;
     this.isHeadlessCapture = false;
 
-    // 1. Инициализация WebGL Рендерера Three.js
+    // 1. Инициализация WebGL Рендерера с поддержкой программного GPU (Xvfb / Mesa)
     this.canvas = document.getElementById('webgl-stage');
+
+    const contextAttributes = {
+      alpha: false,
+      antialias: false,
+      depth: true,
+      stencil: false,
+      failIfMajorPerformanceCaveat: false, // Разрешаем программную эмуляцию WebGL
+      powerPreference: 'default'
+    };
+
+    const gl = this.canvas.getContext('webgl2', contextAttributes) ||
+               this.canvas.getContext('webgl', contextAttributes) ||
+               this.canvas.getContext('experimental-webgl', contextAttributes);
+
+    if (!gl) {
+      throw new Error('Критический сбой: браузер не смог инициализировать контекст WebGL.');
+    }
+
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: false, // Антиалиасинг берет на себя пост-процессинг
-      powerPreference: 'high-performance',
+      context: gl,
+      antialias: false,
+      powerPreference: 'default',
+      failIfMajorPerformanceCaveat: false,
       stencil: false,
       depth: true
     });
@@ -131,7 +151,6 @@ class YokohamaNoirMasterEngine {
     const loop = (currentTime) => {
       requestAnimationFrame(loop);
 
-      // Если запущен захват Puppeteer — отключаем свободный цикл
       if (this.isHeadlessCapture) return;
 
       if (this.isPlaying) {
@@ -149,26 +168,22 @@ class YokohamaNoirMasterEngine {
 
   initKeyboardControls() {
     window.addEventListener('keydown', (e) => {
-      // Пробел — Старт/Пауза
       if (e.code === 'Space') {
         e.preventDefault();
         this.isPlaying = !this.isPlaying;
         console.log(`[ПЛЕЕР] ${this.isPlaying ? 'ВОСПРОИЗВЕДЕНИЕ' : 'ПАУЗА'} | Кадр: ${this.currentFrame}`);
       }
 
-      // Стрелка вправо — на 1 кадр вперед
       if (e.code === 'ArrowRight') {
         this.isPlaying = false;
         this.renderFrame(this.currentFrame + 1);
       }
 
-      // Стрелка влево — на 1 кадр назад
       if (e.code === 'ArrowLeft') {
         this.isPlaying = false;
         this.renderFrame(this.currentFrame - 1);
       }
 
-      // Цифры 1 - 5: быстрый переход к соответствующей сцене
       if (e.key === '1') { this.isPlaying = false; this.renderFrame(0); }
       if (e.key === '2') { this.isPlaying = false; this.renderFrame(360); }
       if (e.key === '3') { this.isPlaying = false; this.renderFrame(720); }
