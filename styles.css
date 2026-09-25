@@ -1,29 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Noto+Serif+JP:wght@700;900&family=Share+Tech+Mono&display=swap');
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
 }
 
 html, body {
   width: 100vw;
   height: 100vh;
-  background-color: #000;
+  background-color: #000205;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Share Tech Mono', 'Noto Sans JP', 'Courier New', monospace;
+  color: #f8fafc;
 }
 
-#cinema-frame {
+/* Контейнер кинематографичного кадра 16:9 строго 1920x1080 */
+#cinema-viewport {
   width: 1920px;
   height: 1080px;
   position: relative;
-  background: #020306;
+  background: #010204;
+  overflow: hidden;
 }
 
-canvas {
+/* Холст WebGL Three.js */
+#webgl-stage {
   width: 1920px;
   height: 1080px;
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* Слой криминалистического интерфейса (True Crime HUD) */
+#hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 60px 80px;
+}
+
+/* Сканлайны ЭЛТ и виньетка киноэкрана */
+#crt-scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  z-index: 20;
+  pointer-events: none;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.35) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.03),
+    rgba(0, 255, 0, 0.01),
+    rgba(0, 0, 255, 0.03)
+  );
+  background-size: 100% 4px, 6px 100%;
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.95);
+}
+
+/* Верхняя статусная панель расследования */
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid rgba(239, 68, 68, 0.4);
+  padding-bottom: 16px;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+.hud-agency-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud-agency-jp {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #f87171;
+}
+
+.hud-agency-ru {
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.hud-meta-info {
+  text-align: right;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.hud-meta-red {
+  color: #ef4444;
+  font-weight: 900;
+}
+
+/* Нижняя панель показаний и протокола расследования */
+.hud-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: 2px solid rgba(56, 189, 248, 0.3);
+  padding-top: 20px;
+}
+
+.hud-dossier-box {
+  max-width: 1100px;
+  background: rgba(4, 9, 18, 0.82);
+  border-left: 5px solid #ef4444;
+  padding: 18px 28px;
+  backdrop-filter: blur(8px);
+}
+
+.hud-dossier-title {
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 24px;
+  font-weight: 900;
+  color: #ef4444;
+  margin-bottom: 6px;
+  letter-spacing: 1.5px;
+}
+
+.hud-dossier-text {
+  font-size: 20px;
+  line-height: 1.45;
+  color: #f1f5f9;
+  min-height: 30px;
+}
+
+/* Японская красная печать Ханко */
+.hanko-stamp {
+  width: 90px;
+  height: 90px;
+  border: 4px solid #dc2626;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 18px;
+  font-weight: 900;
+  color: #dc2626;
+  line-height: 1.1;
+  text-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+  transform: rotate(-12deg);
+  opacity: 0.9;
 }
