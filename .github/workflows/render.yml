@@ -1,16 +1,15 @@
-name: Render Yokohama Noir Video
+name: Render Yokohama 3D Noir Video
 
 on:
   workflow_dispatch:
 
-# Разрешаем создавать релизы и прикреплять к ним видео
 permissions:
   contents: write
 
 jobs:
   render-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
 
     steps:
       - name: 1. Клонирование репозитория
@@ -20,23 +19,35 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
-      - name: 3. Установка системных утилит, FFmpeg и шрифтов
+      - name: 3. Установка системных утилит, WebGL Mesa, FFmpeg и японских шрифтов
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-cjk fonts-dejavu-core fonts-freefont-ttf libgbm1 libnss3 libasound2t64 || sudo apt-get install -y libasound2
+          sudo apt-get install -y \
+            ffmpeg \
+            fonts-noto-cjk \
+            fonts-noto-core \
+            fonts-dejavu-core \
+            fonts-freefont-ttf \
+            libgl1-mesa-glx \
+            libgl1-mesa-dri \
+            libegl1 \
+            libgbm1 \
+            libnss3 \
+            libasound2t64 || sudo apt-get install -y libasound2
 
       - name: 4. Установка зависимостей проекта
         run: npm install
 
-      - name: 5. Запуск рендера
+      - name: 5. Запуск честного 3D-рендера
         run: node render.mjs
 
       - name: 6. Публикация готового видео в GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="render-$(date +'%Y%m%d-%H%M%S')"
+          TAG="yokohama-3d-$(date +'%Y%m%d-%H%M%S')"
           gh release create "$TAG" yokohama_noir_masterpiece.mp4 \
-            --title "Yokohama Noir ($TAG)" \
-            --notes "Готовый 60 FPS рендер (1080p H.264)"
+            --title "Yokohama True Crime 3D ($TAG)" \
+            --notes "Честный 60 FPS 3D-рендер на базе Three.js WebGL (1080p H.264)"
