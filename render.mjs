@@ -15,14 +15,18 @@ const TOTAL_FRAMES = DURATION_SEC * FPS; // 1800 кадров
 const OUTPUT_FILE = 'yokohama_noir_masterpiece.mp4';
 const PORT = 8080;
 
-// Встроенный локальный HTTP-сервер для снятия ограничений CORS
+// Локальный HTTP-сервер для отдачи Three.js и модулей без ограничений безопасности
 function startLocalServer() {
   const mimeTypes = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
     '.mjs': 'text/javascript; charset=utf-8',
     '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8'
+    '.json': 'application/json; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf'
   };
 
   const server = http.createServer((req, res) => {
@@ -31,12 +35,15 @@ function startLocalServer() {
     const filePath = path.join(__dirname, reqPath);
 
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      return res.end(`File not found: ${reqPath}`);
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(`Файл не найден: ${reqPath}`);
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+      'Access-Control-Allow-Origin': '*'
+    });
     fs.createReadStream(filePath).pipe(res);
   });
 
@@ -46,13 +53,14 @@ function startLocalServer() {
 }
 
 async function main() {
-  console.log('\x1b[35m%s\x1b[0m', '════════════════════════════════════════════════════════════════');
-  console.log('\x1b[1m\x1b[37m%s\x1b[0m', '   ИОКОГАМА // ХРОНИКА ОСОБОГО ОТДЕЛА (TRUE CRIME MASTERPIECE)  ');
-  console.log('\x1b[35m%s\x1b[0m', '════════════════════════════════════════════════════════════════');
+  console.log('\x1b[35m%s\x1b[0m', '════════════════════════════════════════════════════════════════════');
+  console.log('\x1b[1m\x1b[37m%s\x1b[0m', '   ИОКОГАМА // ХРОНИКА ОСОБОГО ОТДЕЛА (HOLLYWOOD 3D MASTERPIECE)    ');
+  console.log('\x1b[35m%s\x1b[0m', '════════════════════════════════════════════════════════════════════');
 
   const server = await startLocalServer();
   console.log(`[+] Локальный сервер запущен: http://127.0.0.1:${PORT}`);
 
+  // FFmpeg пайплайн с высоким битрейтом и честным профилем x264 High 4.2
   const ffmpeg = spawn('ffmpeg', [
     '-y',
     '-f', 'image2pipe',
@@ -60,8 +68,10 @@ async function main() {
     '-r', String(FPS),
     '-i', '-',
     '-c:v', 'libx264',
-    '-preset', 'fast',
-    '-crf', '16',
+    '-preset', 'medium',
+    '-profile:v', 'high',
+    '-level:v', '4.2',
+    '-crf', '15',
     '-pix_fmt', 'yuv420p',
     OUTPUT_FILE
   ]);
@@ -73,15 +83,18 @@ async function main() {
     }
   });
 
+  // Запуск Chromium с программным WebGL (SwiftShader), поддерживаемым в GitHub Actions
   const browser = await puppeteer.launch({
     headless: 'new',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--allow-file-access-from-files',
-      '--disable-web-security',
+      '--enable-webgl',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+      '--ignore-gpu-blocklist',
+      '--disable-gpu-sandbox',
       '--disable-background-timer-throttling',
       `--window-size=${WIDTH},${HEIGHT}`
     ]
@@ -90,26 +103,32 @@ async function main() {
   const page = await browser.newPage();
   await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
 
-  // Вывод логов браузера прямо в терминал GitHub Actions
-  page.on('console', (msg) => console.log(`[БРАУЗЕР] ${msg.type().toUpperCase()}: ${msg.text()}`));
-  page.on('pageerror', (err) => console.error(`\x1b[31m[ОШИБКА В СТРАНИЦЕ]\x1b[0m ${err.message}`));
+  page.on('console', (msg) => {
+    const text = msg.text();
+    if (text.includes('[THREE]') || text.includes('[ERROR]')) {
+      console.log(`[БРАУЗЕР] ${msg.type().toUpperCase()}: ${text}`);
+    }
+  });
+  page.on('pageerror', (err) => console.error(`\x1b[31m[ОШИБКА СТРАНИЦЫ]\x1b[0m ${err.message}`));
 
   const targetUrl = `http://127.0.0.1:${PORT}/index.html`;
-  console.log(`[+] Открытие сцены: ${targetUrl}`);
+  console.log(`[+] Загрузка 3D сцены: ${targetUrl}`);
   await page.goto(targetUrl, { waitUntil: 'networkidle0' });
 
-  // Ожидание регистрации функции
-  await page.waitForFunction('typeof window.renderFrame === "function"', { timeout: 15000 });
+  // Ожидание готовности 3D-конвейера
+  await page.waitForFunction('typeof window.renderFrame === "function"', { timeout: 30000 });
+  await page.waitForFunction('window.__ENGINE_READY__ === true', { timeout: 30000 });
 
-  console.log('\x1b[32m[+] Функция renderFrame успешно инициализирована. Старт рендера...\x1b[0m\n');
+  console.log('\x1b[32m[+] 3D Движок успешно инициализирован. Старт пошагового рендера...\x1b[0m\n');
   const t0 = Date.now();
 
   for (let f = 0; f < TOTAL_FRAMES; f++) {
+    // Рендерим точно фиксированный кадр (детерминированная покадровая анимация)
     await page.evaluate((frame) => window.renderFrame(frame), f);
 
     const buf = await page.screenshot({
       type: 'jpeg',
-      quality: 95,
+      quality: 98,
       omitBackground: false
     });
 
@@ -125,19 +144,19 @@ async function main() {
       const eta = ((TOTAL_FRAMES - (f + 1)) / (curFps || 1)).toFixed(0);
 
       process.stdout.write(
-        `\r\x1b[36m[РЕНДЕР]\x1b[0m Кадр ${String(f + 1).padStart(4, ' ')}/${TOTAL_FRAMES} ` +
+        `\r\x1b[36m[3D RENDER]\x1b[0m Кадр ${String(f + 1).padStart(4, ' ')}/${TOTAL_FRAMES} ` +
         `[\x1b[1m\x1b[32m${pct}%\x1b[0m] | ${curFps.toFixed(1)} FPS | Ожидание: ~${eta}с `
       );
     }
   }
 
-  console.log('\n\n\x1b[32m[+] Все кадры обработаны. Завершение MP4...\x1b[0m');
+  console.log('\n\n\x1b[32m[+] Все 1800 кадров захвачены. Финализация кодирования видеофайла...\x1b[0m');
   ffmpeg.stdin.end();
 
   await new Promise((resolve, reject) => {
     ffmpeg.on('close', (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`ffmpeg завершился с кодом ошибки: ${code}`));
+      else reject(new Error(`FFmpeg завершился с кодом: ${code}`));
     });
   });
 
@@ -145,10 +164,10 @@ async function main() {
   server.close();
 
   const dur = ((Date.now() - t0) / 1000).toFixed(1);
-  console.log(`\x1b[32m[✓] РЕНДЕР ЗАВЕРШЕН! Файл: ${OUTPUT_FILE} (${dur} сек)\x1b[0m\n`);
+  console.log(`\x1b[32m[✓] РЕНДЕР 3D ШЕДЕВРА ЗАВЕРШЕН! Файл: ${OUTPUT_FILE} (время: ${dur} сек)\x1b[0m\n`);
 }
 
 main().catch((err) => {
-  console.error('\x1b[31m[!] Сбой:\x1b[0m', err);
+  console.error('\x1b[31m[!] Критическая ошибка рендера:\x1b[0m', err);
   process.exit(1);
-});
+}); 
