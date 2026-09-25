@@ -5,17 +5,22 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-// Кастомный голливудский шейдер: преломление капель дождя на линзе, анаморфотный блик, зерно и аберрация
-const YokohamaCinematicShader = {
-  name: 'YokohamaCinematicShader',
+/**
+ * КИНЕМАТОГРАФИЧЕСКИЙ ШЕЙДЕР ОБЪЕКТИВА И ПЛЕНКИ 35-ММ
+ * Включает: физическую виньетку, хроматическую аберрацию линз,
+ * органическое пленочное зерно и цветовой грейдинг.
+ */
+const CinematicOpticsShader = {
+  name: 'CinematicOpticsShader',
   uniforms: {
     tDiffuse: { value: null },
     uTime: { value: 0 },
-    uRainAmount: { value: 0.65 },
-    uVignette: { value: 0.85 },
-    uGrainIntensity: { value: 0.045 },
-    uAberration: { value: 0.0035 },
-    uLightningFlash: { value: 0.0 }
+    uVignetteIntensity: { value: 0.75 },
+    uVignetteRoundness: { value: 0.85 },
+    uAberration: { value: 0.0028 },
+    uGrainIntensity: { value: 0.038 },
+    uSaturation: { value: 1.08 },
+    uContrast: { value: 1.05 }
   },
   vertexShader: `
     varying vec2 vUv;
@@ -27,75 +32,49 @@ const YokohamaCinematicShader = {
   fragmentShader: `
     uniform sampler2D tDiffuse;
     uniform float uTime;
-    uniform float uRainAmount;
-    uniform float uVignette;
-    uniform float uGrainIntensity;
+    uniform float uVignetteIntensity;
+    uniform float uVignetteRoundness;
     uniform float uAberration;
-    uniform float uLightningFlash;
+    uniform float uGrainIntensity;
+    uniform float uSaturation;
+    uniform float uContrast;
     varying vec2 vUv;
 
-    // Быстрый хэш для генерации 35мм плёночного зерна
-    float hash(vec2 p) {
-      vec3 p3  = fract(vec3(p.xyx) * 0.1031);
-      p3 += dot(p3, p3.yzx + 33.33);
-      return fract((p3.x + p3.y) * p3.z);
-    }
-
-    // Имитация преломления капли воды на стекле объектива
-    vec2 getDropletOffset(vec2 uv, float t) {
-      vec2 st = uv * vec2(16.0, 9.0);
-      vec2 id = floor(st);
-      vec2 gv = fract(st) - 0.5;
-
-      float n = hash(id);
-      float dropSpeed = 0.18 + n * 0.35;
-      float yOffset = fract(t * dropSpeed + n);
-      
-      vec2 dropPos = vec2(sin(n * 6.28) * 0.25, -yOffset + 0.5);
-      float dist = length(gv - dropPos);
-
-      float r = 0.08 + n * 0.12;
-      if (dist < r) {
-        vec2 normal = (gv - dropPos) / r;
-        return normal * 0.045 * (1.0 - dist / r);
-      }
-      return vec2(0.0);
+    // Быстрый высокочастотный псевдослучайный шум для зерна Kodak 35mm
+    float filmNoise(vec2 uv, float t) {
+      vec2 p = uv + fract(sin(t * 127.1 + uv.x * 311.7 + uv.y * 74.7) * 43758.5453);
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
     }
 
     void main() {
       vec2 uv = vUv;
+      vec2 coordFromCenter = uv - 0.5;
+      float distFromCenter = length(coordFromCenter);
 
-      // 1. Оптическое преломление дождя на линзе камеры
-      vec2 dropDistort = getDropletOffset(uv, uTime) * uRainAmount;
-      vec2 sceneUv = uv + dropDistort;
-
-      // 2. Хроматическая аберрация (смещение каналов RGB по краям кадра)
-      vec2 toCenter = sceneUv - 0.5;
-      float d = length(toCenter);
-      float ab = uAberration * (1.0 + d * 2.2) + (uLightningFlash * 0.008);
-
-      float r = texture2D(tDiffuse, sceneUv + toCenter * ab).r;
-      float g = texture2D(tDiffuse, sceneUv).g;
-      float b = texture2D(tDiffuse, sceneUv - toCenter * ab).b;
+      // 1. Хроматическая аберрация по краям линзы (Lens Dispersion)
+      float ab = uAberration * (1.0 + distFromCenter * 2.4);
+      float r = texture2D(tDiffuse, uv + coordFromCenter * ab).r;
+      float g = texture2D(tDiffuse, uv).g;
+      float b = texture2D(tDiffuse, uv - coordFromCenter * ab).b;
       vec3 color = vec3(r, g, b);
 
-      // 3. Анаморфотный кино-блик в средних тонах (Cold Noir Color Grade)
-      color = mix(color, vec3(color.r * 0.85, color.g * 1.05, color.b * 1.25), 0.28);
+      // 2. Кинематографический контраст и насыщенность
+      // Насыщенность (Luminance Rec.709)
+      float lum = dot(color, vec3(0.2126, 0.7152, 0.0722));
+      color = mix(vec3(lum), color, uSaturation);
 
-      // 4. Оптическая виньетка объектива 35-мм
-      float vig = 1.0 - smoothstep(0.3, 0.95, d);
-      color *= mix(1.0, vig, uVignette);
+      // Контраст (S-кривая)
+      color = (color - 0.5) * uContrast + 0.5;
 
-      // 5. Киноплёночное зерно (35mm Film Grain)
-      float grain = (hash(uv * 1000.0 + fract(uTime * 43.12)) - 0.5) * uGrainIntensity;
+      // 3. Физическая виньетка объектива (Falloff)
+      float vFactor = smoothstep(uVignetteRoundness, 0.25, distFromCenter);
+      color *= mix(1.0, vFactor, uVignetteIntensity);
+
+      // 4. Пленочное зерно (Film Grain)
+      float grain = filmNoise(uv * 2.0, uTime) * uGrainIntensity;
       color += grain;
 
-      // 6. Заливка кадра при вспышке молнии
-      if (uLightningFlash > 0.0) {
-        color = mix(color, vec3(0.9, 0.95, 1.0), uLightningFlash * 0.85);
-      }
-
-      gl_FragColor = vec4(color, 1.0);
+      gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
     }
   `
 };
@@ -108,33 +87,51 @@ export class NoirPostProcessing {
     this.width = width;
     this.height = height;
 
-    this.composer = new EffectComposer(this.renderer);
+    // Честный 16-битный плавающий HDR RenderTarget.
+    // Без него цвета ярче 1.0 обрезаются, а Bloom превращается в серое пятно.
+    const hdrRenderTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
+      type: THREE.HalfFloatType,
+      format: THREE.RGBAFormat,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      stencilBuffer: false,
+      depthBuffer: true
+    });
 
-    // 1. Базовый проход рендера сцены
-    const renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
+    this.composer = new EffectComposer(this.renderer, hdrRenderTarget);
 
-    // 2. Голливудский UnrealBloom (мягкое неоновое свечение ночного города)
+    // 1. Базовый проход геометрии
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(this.renderPass);
+
+    // 2. Голливудский мягкий Bloom для неонов, фонарей и бликов инструментов
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(this.width, this.height),
-      0.95,  // strength
-      0.55,  // radius
-      0.18   // threshold
+      0.85,  // Интенсивность свечения
+      0.45,  // Радиус рассеивания
+      0.40   // Порог: светятся только яркие источники
     );
     this.composer.addPass(this.bloomPass);
 
-    // 3. Кастомный анаморфотный шейдер капель дождя и кинематографии
-    this.cinematicPass = new ShaderPass(YokohamaCinematicShader);
-    this.composer.addPass(this.cinematicPass);
+    // 3. Тональная компрессия ACES Filmic и перевод в sRGB цветовое пространство
+    this.outputPass = new OutputPass();
+    this.composer.addPass(this.outputPass);
 
-    // 4. Финальный выходной цветовой проход (sRGB / Tone Mapping)
-    const outputPass = new OutputPass();
-    this.composer.addPass(outputPass);
+    // 4. Финальный оптический шейдер кинокамеры (аберрация, зерно, виньетка)
+    this.opticsPass = new ShaderPass(CinematicOpticsShader);
+    this.composer.addPass(this.opticsPass);
   }
 
   render(frame, isLightning = false) {
-    this.cinematicPass.uniforms.uTime.value = frame * 0.016;
-    this.cinematicPass.uniforms.uLightningFlash.value = isLightning ? 0.95 : 0.0;
+    this.opticsPass.uniforms.uTime.value = frame * 0.016;
+
+    // Вспышка света временно снижает виньетку
+    if (isLightning) {
+      this.opticsPass.uniforms.uVignetteIntensity.value = 0.2;
+    } else {
+      this.opticsPass.uniforms.uVignetteIntensity.value = 0.75;
+    }
+
     this.composer.render();
   }
 
