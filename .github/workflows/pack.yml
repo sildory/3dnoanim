@@ -1,0 +1,21 @@
+name: Pack code
+on: [workflow_dispatch]
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Упаковка репозитория в один файл
+        run: npx --yes repomix --output repomix-output.txt
+      - name: Диагностика — какие файлы созданы
+        if: always()
+        run: ls -la
+      - name: Выгрузка файла
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repomix
+          path: repomix-output.*
