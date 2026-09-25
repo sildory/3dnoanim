@@ -1,13 +1,14 @@
 {
-  "name": "yokohama-noir-cinematic",
-  "version": "5.0.0",
+  "name": "yokohama-noir-3d",
+  "version": "6.0.0",
   "type": "module",
-  "description": "Ultimate 60 FPS Detective Noir Animation: Yokohama",
+  "description": "Cinematic 3D Detective Noir in Yokohama: 60 FPS WebGL Masterpiece",
   "main": "render.mjs",
   "scripts": {
     "render": "node render.mjs"
   },
   "dependencies": {
-    "puppeteer": "^22.6.0"
+    "puppeteer": "^22.10.0",
+    "three": "^0.165.0"
   }
 }
