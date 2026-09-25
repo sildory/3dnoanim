@@ -29,15 +29,17 @@ jobs:
             fonts-noto-core \
             fonts-dejavu-core \
             fonts-freefont-ttf \
-            libgl1-mesa-glx \
-            libgl1-mesa-dri \
+            libgl1 \
+            libglx-mesa0 \
             libegl1 \
             libgbm1 \
-            libnss3 \
-            libasound2t64 || sudo apt-get install -y libasound2
+            libnss3
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: 4. Установка зависимостей проекта
-        run: npm install
+        run: |
+          npm install
+          npx puppeteer browsers install chrome
 
       - name: 5. Запуск честного 3D-рендера
         run: node render.mjs
