@@ -1,21 +1,32 @@
-name: Pack code
-on: [workflow_dispatch]
+name: Pack Code
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   pack:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: 1. Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: 2. Настройка Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Упаковка репозитория в один файл
-        run: npx --yes repomix --output repomix-output.txt
-      - name: Диагностика — какие файлы созданы
-        if: always()
-        run: ls -la
-      - name: Выгрузка файла
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: repomix
-          path: repomix-output.* 
+          node-version: 20
+
+      - name: 3. Упаковка кодовой базы через Repomix
+        run: |
+          npx --yes repomix --output repomix-output.txt --ignore "node_modules/**,*.mp4"
+
+      - name: 4. Публикация чистого текстового файла в Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="code-$(date +'%Y%m%d-%H%M%S')"
+          gh release create "$TAG" repomix-output.txt \
+            --title "Code Snapshot ($TAG)" \
+            --notes "Полный исходный код проекта в одном распакованном файле repomix-output.txt"
